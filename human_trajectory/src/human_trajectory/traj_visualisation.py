@@ -8,6 +8,12 @@ from geometry_msgs.msg import Point
 from interactive_markers.interactive_marker_server import InteractiveMarker
 from human_trajectory.trajectories import OfflineTrajectories
 
+import string
+import datetime
+from std_msgs.msg import ColorRGBA
+from soma_roi_manager.soma_roi import get_color
+from occurrence_learning.trajectory_edge_est import TrajectoryEdgeEstimate
+
 
 def trapezoidal_shaped_func(a, b, c, d, x):
     min_val = min(min((x - a)/(b - a), float(1.0)), (d - x)/(d - c))
@@ -56,10 +62,29 @@ def average_velocity(traj):
 
 class TrajectoryVisualization(object):
 
-    def __init__(self, marker_name):
+    def __init__(self, marker_name, color_type="avg_velocity"):
         self._modulo = 3
+        self.color_type = color_type
         self.trajs = OfflineTrajectories()
         self._server = ims.InteractiveMarkerServer(marker_name)
+        if color_type == "line_group":
+            if not self.group_trajectories_by_line():
+                self.color_type = "avg_velocity"
+
+    def group_trajectories_by_line(self):
+        try:
+            inp = raw_input("[start_date end_date month year]: ")
+            [sd, ed, mon, year] = string.split(inp)
+            inp = raw_input("[soma_map soma_config minute_interval]: ")
+            [soma_map, soma_config, min_inter] = string.split(inp)
+            self.tre = TrajectoryEdgeEstimate(soma_map, soma_config, int(min_inter))
+            days = [
+                datetime.datetime(int(year), int(mon), i, 0, 0) for i in range(int(sd), int(ed)+1)
+            ]
+            self.tre.obtain_number_of_trajectories(days)
+            return True
+        except:
+            return False
 
     # choosing the visualisation you want, all trajectories, the longest,
     # shortest or average length of trajectories
@@ -86,6 +111,8 @@ class TrajectoryVisualization(object):
 
         rospy.loginfo("Total Trajectories: " + str(len(self.trajs.traj)))
         rospy.loginfo("Printed trajectories: " + str(counter))
+        if self.color_type == "direction":
+            rospy.loginfo("Trajectory direction is going from blue to green")
 
     def _update_cb(self, feedback):
         return
@@ -95,6 +122,32 @@ class TrajectoryVisualization(object):
         self._server.insert(int_marker, self._update_cb)
         self._server.applyChanges()
 
+    def delete_trajectory(self, traj):
+        self._server.erase(traj.uuid)
+        self._server.applyChanges()
+
+    def set_line_color(self, **kwargs):
+        if self.color_type == "line_group":
+            line_id = "1"
+            for roi, uuids in self.tre.uuid_in_edges.iteritems():
+                if kwargs['uuid'] in uuids:
+                    line_id = roi
+                    break
+            color = get_color(line_id)
+        elif self.color_type == "direction":
+            color = ColorRGBA()
+            color.r = 0.0
+            color.g = float(kwargs["index"]) / float(kwargs["length"])
+            color.b = 1.0 - float(kwargs["index"]) / float(kwargs["length"])
+            color.a = 1.0
+        else:
+            color = ColorRGBA()
+            color.r = r_func(average_velocity(kwargs["traj"]))
+            color.g = g_func(average_velocity(kwargs["traj"]))
+            color.b = b_func(average_velocity(kwargs["traj"]))
+            color.a = 1.0
+        return color
+
     def create_trajectory_marker(self, traj):
         # create an interactive marker for our server
         int_marker = InteractiveMarker()
@@ -102,15 +155,16 @@ class TrajectoryVisualization(object):
         int_marker.name = traj.uuid
 
         int_marker.pose = traj.humrobpose[0][0].pose
+        int_marker.pose.orientation.x = 0
+        int_marker.pose.orientation.y = 0
+        int_marker.pose.orientation.z = 0
+        int_marker.pose.orientation.w = 1
 
         line_marker = Marker()
         line_marker.type = Marker.LINE_STRIP
         line_marker.scale.x = 0.05
-
-        line_marker.color.r = r_func(average_velocity(traj))
-        line_marker.color.g = g_func(average_velocity(traj))
-        line_marker.color.b = b_func(average_velocity(traj))
-        line_marker.color.a = 1.0
+        if self.color_type in ["line_group", "avg_velocity"]:
+            line_marker.color = self.set_line_color(uuid=traj.uuid, traj=traj)
 
         line_marker.points = []
         while len(traj.humrobpose) / self._modulo > 5000:
@@ -124,6 +178,10 @@ class TrajectoryVisualization(object):
                     0.0
                 )
                 line_marker.points.append(p)
+                if self.color_type == "direction":
+                    line_marker.colors.append(
+                        self.set_line_color(index=i, length=len(traj.humrobpose))
+                    )
 
         self._modulo = 3
 
@@ -167,16 +225,20 @@ class TrajectoryVisualization(object):
 
 if __name__ == "__main__":
     mode = "all"
+    color_type = "direction"
     parser = argparse.ArgumentParser(prog='trajectory')
     parser.add_argument("mode", help="[all | average | shortest | longest]")
+    parser.add_argument("color_type", help="[line_group | direction | avg_velocity]")
     args = parser.parse_args()
     if args.mode != "":
         mode = args.mode
+    if args.color_type != "":
+        color_type = args.color_type
 
     rospy.init_node("human_trajectory_visualization")
     rospy.loginfo("Running Trajectory Visualization...")
 
-    ta = TrajectoryVisualization('trajectory_visualization')
+    ta = TrajectoryVisualization('trajectory_visualization', color_type)
     ta.trajectory_visualization(mode)
 
     raw_input("Press 'Enter' to exit.")
