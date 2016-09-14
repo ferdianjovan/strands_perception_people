@@ -42,7 +42,7 @@ class OnlineTrajectories(object):
     def _validate_trajectories(self, traj):
         for uuid, t in traj.items():
             t.validate_all_poses()
-            length_ratio = t.length[-1] / float(len(t.humrobpose)) 
+            length_ratio = t.length[-1] / float(len(t.humrobpose))
             # 0.03 based on how fast a person moves within frames
             if (length_ratio < 0.03 and uuid not in self.ubd_uuids):
                 del traj[uuid]
