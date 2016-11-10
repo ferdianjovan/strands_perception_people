@@ -14,8 +14,7 @@
 
     <machine name="$(arg machine)" address="$(arg machine)" env-loader="$(optenv ROS_ENV_LOADER )" user="$(arg user)" default="true"/>
 
-    <node pkg="human_trajectory" type="trajectory_publisher.py"
-name="$(arg collection_name)" output="screen" respawn="true">
+    <node pkg="human_trajectory" type="trajectory_publisher.py" name="$(arg collection_name)" output="log" respawn="false">
         <param name="with_logging_manager" value="$(arg with_logging_manager)" type="bool"/>
         <param name="path_visualisation" value="$(arg path_visualisation)" type="bool"/>
         <param name="online_construction" value="$(arg online_construction)" type="bool"/>
