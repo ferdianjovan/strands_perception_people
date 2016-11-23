@@ -113,5 +113,4 @@ class VisionLoggingService(object):
 if __name__ == '__main__':
     rospy.init_node('vision_logging_service')
     vls = VisionLoggingService(rospy.get_name())
-    vls.publish_captured_log()
     rospy.spin()
