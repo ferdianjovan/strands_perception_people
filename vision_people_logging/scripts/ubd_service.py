@@ -25,13 +25,7 @@ class VisionLoggingService(object):
             rospy.get_param("mongodb_port", 62345)
         ).message_store.upper_bodies
         self._msg_store = MessageStoreProxy(collection="upper_bodies")
-        self._pub = rospy.Publisher(name+'/log', LoggingUBD, queue_size=10)
         self.save_ubd = SaveUBD(is_stored=False)
-
-    def publish_captured_log(self):
-        while not rospy.is_shutdown():
-            self._pub.publish(self.save_ubd.log)
-            rospy.sleep(0.1)
 
     def capture_srv_cb(self, srv):
         rospy.loginfo("Got a request to capture a snapshot of UBD")
