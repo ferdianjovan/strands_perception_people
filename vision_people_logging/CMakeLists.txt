@@ -47,7 +47,7 @@ catkin_package(
     sensor_msgs
     geometry_msgs
     message_filters
-    message_generation
+    message_runtime
     mongodb_store
     rospy
     tf

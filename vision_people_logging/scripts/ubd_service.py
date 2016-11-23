@@ -83,7 +83,7 @@ class VisionLoggingService(object):
             log = copy.deepcopy(self.save_ubd.log)
             self._pub.publish(log)
             if not self.save_ubd.is_stored:
-                self.msg_store.insert(log, meta={"stored_by": "ubd_service.py"})
+                self._msg_store.insert(log, meta={"stored_by": "ubd_service.py"})
 
     def capture_srv_cb(self, srv):
         rospy.loginfo("Got a request to capture a snapshot of UBD")

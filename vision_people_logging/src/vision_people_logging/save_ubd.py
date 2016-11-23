@@ -69,7 +69,7 @@ class SaveUBD():
             log.ubd_rgb = list(self.cut_all(ubd, rgb))
             log.ubd_d = list(self.cut_all(ubd, d))
             # rospy.logdebug("{} Upper Body/ies detected. Logging to {} collection.".format(len(ubd_cent.poses), self.collname))
-            _id = self.msg_store.insert(log, meta={"people": "upper_bodies"})
+            _id = self.msg_store.insert(log, meta={"stored_by": "save_ubd.py"})
             self.obj_ids.append(_id)
         self.log = log
 
