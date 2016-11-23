@@ -49,7 +49,7 @@ class VisionLoggingService(object):
         self.save_ubd = SaveUBD(is_stored=False)
         # publisher
         self._pub = rospy.Publisher(rospy.get_name()+'/log', LoggingUBD, queue_size=10)
-        rospy.Timer(rospy.Duration(0.1), self._publish_logging)
+        rospy.Timer(rospy.Duration(1), self._publish_logging)
 
     def _ptu_cb(self, ptu):
         dist = euclidean(ptu.position, self._ptu.position)
