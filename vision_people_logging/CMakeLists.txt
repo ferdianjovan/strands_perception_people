@@ -5,6 +5,7 @@ project(vision_people_logging)
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
+  sensor_msgs
   geometry_msgs
   message_filters
   message_generation
@@ -43,9 +44,12 @@ generate_messages(
 ###################################
 catkin_package(
   CATKIN_DEPENDS
-    geometry_msgs
     sensor_msgs
+    geometry_msgs
+    message_filters
+    message_generation
     mongodb_store
+    rospy
     tf
     upper_body_detector
 )

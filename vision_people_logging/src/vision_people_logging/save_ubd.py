@@ -23,7 +23,7 @@ class SaveUBD():
         self.is_stored = is_stored
         self.obj_ids = list()
         self.counter = 0
-        self._pub = rospy.Publisher(rospy.get_name()+'/log', LoggingUBD, queue_size=10)
+        self.log = LoggingUBD()
 
         # Always get the robot's position.
         rospy.Subscriber("/robot_pose", geometry_msgs.msg.Pose, self.posecb, None, 1)
@@ -51,12 +51,12 @@ class SaveUBD():
         log = LoggingUBD()
         # Check for permission, if necessary:
         if len(mgr) and not mgr[0].log:
-            self._pub.publish(log)
+            self.log = log
             return
 
         # UBD publishes an empty message even when there's no detection.
         if (len(ubd_cent.poses) == 0) and (len(ubd.median_depth) == 0):
-            self._pub.publish(log)
+            self.log = log
             return
 
         log.ubd = ubd
@@ -69,10 +69,9 @@ class SaveUBD():
             log.ubd_rgb = list(self.cut_all(ubd, rgb))
             log.ubd_d = list(self.cut_all(ubd, d))
             # rospy.logdebug("{} Upper Body/ies detected. Logging to {} collection.".format(len(ubd_cent.poses), self.collname))
-        _id = self.msg_store.insert(log, meta={"people": "upper_bodies"})
-        if self.is_stored:
+            _id = self.msg_store.insert(log, meta={"people": "upper_bodies"})
             self.obj_ids.append(_id)
-        self._pub.publish(log)
+        self.log = log
 
     def cut_all(self, ubd, image, hfact=3):
         b = CvBridge()

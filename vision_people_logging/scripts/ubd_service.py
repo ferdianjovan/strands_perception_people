@@ -1,7 +1,11 @@
 #!/usr/bin/env python
 
+import copy
 import rospy
 import pymongo
+from geometry_msgs.msg import Pose
+from sensor_msgs.msg import JointState
+from scipy.spatial.distance import euclidean
 from vision_people_logging.msg import LoggingUBD
 from vision_people_logging.save_ubd import SaveUBD
 from mongodb_store.message_store import MessageStoreProxy
@@ -12,7 +16,23 @@ from vision_people_logging.srv import CaptureUBD, CaptureUBDResponse
 
 class VisionLoggingService(object):
 
-    def __init__(self, name):
+    def __init__(self, name, wait_time=30):
+        self._max_dist = 0.1
+        self._wait_time = wait_time
+        # ptu
+        rospy.loginfo("Subcribe to /ptu/state...")
+        self._ptu = JointState()
+        self._ptu.position = [0, 0]
+        self._ptu_counter = 0
+        self._is_ptu_changing = [True for i in range(wait_time)]
+        rospy.Subscriber("/ptu/state", JointState, self._ptu_cb, None, 1)
+        # robot pose
+        rospy.loginfo("Subcribe to /robot_pose...")
+        self._robot_pose = Pose()
+        self._robot_pose_counter = 0
+        self._is_robot_moving = [True for i in range(wait_time)]
+        rospy.Subscriber("/robot_pose", Pose, self._robot_cb, None, 1)
+        # ubd services
         rospy.loginfo("Creating a delete service under %s/delete" % name)
         self.del_srv = rospy.Service(name+'/delete', DeleteUBD, self.del_srv_cb)
         rospy.loginfo("Creating a find service under %s/find" % name)
@@ -20,12 +40,50 @@ class VisionLoggingService(object):
         rospy.loginfo("Creating a capture service under %s/capture" % name)
         self.cptr_srv = rospy.Service(name+'/capture', CaptureUBD, self.capture_srv_cb)
         rospy.loginfo("Connecting to mongodb message_store - upper_bodies collection...")
+        # db
         self._ubd_db = pymongo.MongoClient(
             rospy.get_param("mongodb_host", "localhost"),
             rospy.get_param("mongodb_port", 62345)
         ).message_store.upper_bodies
         self._msg_store = MessageStoreProxy(collection="upper_bodies")
         self.save_ubd = SaveUBD(is_stored=False)
+        # publisher
+        self._pub = rospy.Publisher(rospy.get_name()+'/log', LoggingUBD, queue_size=10)
+        rospy.Timer(rospy.Duration(0.1), self._publish_logging)
+
+    def _ptu_cb(self, ptu):
+        dist = euclidean(ptu.position, self._ptu.position)
+        self._is_ptu_changing[self._ptu_counter] = dist >= self._max_dist
+        # print "is ptu moving: %s" % str(self._is_ptu_changing)
+        self._ptu_counter = (self._ptu_counter+1) % self._wait_time
+        self._ptu = ptu
+        rospy.sleep(1)
+
+    def _robot_cb(self, pose):
+        dist = euclidean(
+            [
+                pose.position.x, pose.position.y,
+                pose.orientation.z, pose.orientation.w
+            ],
+            [
+                self._robot_pose.position.x, self._robot_pose.position.y,
+                self._robot_pose.orientation.z, self._robot_pose.orientation.w
+            ]
+        )
+        self._is_robot_moving[self._robot_pose_counter] = dist >= self._max_dist
+        self._robot_pose_counter = (
+            self._robot_pose_counter+1
+        ) % self._wait_time
+        self._robot_pose = pose
+        rospy.sleep(1)
+
+    def _publish_logging(self, event):
+        not_moving = True not in (self._is_robot_moving+self._is_ptu_changing)
+        if not_moving:
+            log = copy.deepcopy(self.save_ubd.log)
+            self._pub.publish(log)
+            if not self.save_ubd.is_stored:
+                self.msg_store.insert(log, meta={"stored_by": "ubd_service.py"})
 
     def capture_srv_cb(self, srv):
         rospy.loginfo("Got a request to capture a snapshot of UBD")
@@ -112,5 +170,6 @@ class VisionLoggingService(object):
 
 if __name__ == '__main__':
     rospy.init_node('vision_logging_service')
-    vls = VisionLoggingService(rospy.get_name())
+    wait_time = rospy.get_param("~wait_time", 30)
+    vls = VisionLoggingService(rospy.get_name(), wait_time)
     rospy.spin()
