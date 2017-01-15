@@ -49,6 +49,7 @@ class SaveUBD():
 
     def cb(self, ubd, ubd_cent, rgb, d, *mgr):
         log = LoggingUBD()
+        log.header = ubd.header
         # Check for permission, if necessary:
         if len(mgr) and not mgr[0].log:
             self.log = log
@@ -60,7 +61,6 @@ class SaveUBD():
             return
 
         log.ubd = ubd
-        log.header = ubd.header
         log.robot = self.robot_pose
         log.ubd_pos = self.to_world_all(ubd_cent)
 
