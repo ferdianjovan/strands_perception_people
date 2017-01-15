@@ -152,7 +152,9 @@ class OfflineTrajectories(object):
     def _validate_trajectories(self, traj):
         for uuid, t in traj.items():
             t.validate_all_poses()
-            if t.length[-1] < 0.1 or len(t.humrobpose) < 20:
+            cond = (t.length[-1] < 0.1) or (len(t.humrobpose) < 20)
+            cond = cond or (t.displacement_pose_ratio < 0.01)
+            if cond:
                 del traj[uuid]
         return traj
 
