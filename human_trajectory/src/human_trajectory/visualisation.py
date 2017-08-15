@@ -26,6 +26,10 @@ class TrajectoryVisualisation(object):
         self.trajs = OfflineTrajectories(query)
         self._server = ims.InteractiveMarkerServer(marker_name)
 
+    def update_query(self, query=None):
+        self.trajs = OfflineTrajectories(query)
+        self._server.clear()
+
     # choosing the visualisation you want, all trajectories, the longest,
     # shortest or average length of trajectories
     def visualize_trajectories(self, mode="all", avg_len=0, longest_len=0):
